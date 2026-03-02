@@ -1,0 +1,87 @@
+## Render Blueprint — LeadFlow Engine
+## Sign up at https://render.com (no credit card required)
+## Deploy: Dashboard → New → Blueprint → connect repo → this file is auto-detected
+
+services:
+  # ─── API ─────────────────────────────────────────────────────────────────
+  - type: web
+    name: leadflow-api
+    runtime: docker
+    dockerfilePath: packages/api/Dockerfile
+    dockerContext: .   # repo root — needed for pnpm workspace resolution
+    plan: free         # 512 MB RAM, 0.1 vCPU, 750 hrs/month
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: LOG_LEVEL
+        value: info
+      # ── Secrets: fill these in the Render dashboard after first deploy ──
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_WEBHOOK_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: CRUNCHBASE_API_KEY
+        sync: false
+      - key: REDDIT_CLIENT_ID
+        sync: false
+      - key: REDDIT_CLIENT_SECRET
+        sync: false
+      - key: REDDIT_USER_AGENT
+        value: leadflow-engine/1.0
+      - key: RESEND_API_KEY
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: HMAC_SECRET
+        sync: false
+
+  # ─── Workers ─────────────────────────────────────────────────────────────
+  - type: web          # Render has no free "background worker" — web + health is identical
+    name: leadflow-workers
+    runtime: docker
+    dockerfilePath: packages/workers/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HEALTH_PORT
+        value: "3001"
+      - key: LOG_LEVEL
+        value: info
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: CRUNCHBASE_API_KEY
+        sync: false
+      - key: REDDIT_CLIENT_ID
+        sync: false
+      - key: REDDIT_CLIENT_SECRET
+        sync: false
+      - key: REDDIT_USER_AGENT
+        value: leadflow-engine/1.0
+      - key: RESEND_API_KEY
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: HMAC_SECRET
+        sync: false

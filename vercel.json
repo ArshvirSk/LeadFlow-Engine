@@ -7,7 +7,7 @@
     "rewrites": [
         {
             "source": "/api/:path*",
-            "destination": "https://leadflow-api.fly.dev/api/:path*"
+            "destination": "https://leadflow-api.onrender.com/api/:path*"
         }
     ],
     "headers": [
