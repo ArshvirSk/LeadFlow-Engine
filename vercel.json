@@ -4,18 +4,6 @@
     "outputDirectory": "packages/web/.next",
     "installCommand": "pnpm install --frozen-lockfile",
     "devCommand": "pnpm --filter @leadflow/web dev",
-    "env": {
-        "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "@clerk-publishable-key",
-        "NEXT_PUBLIC_API_URL": "@api-url",
-        "NEXT_PUBLIC_APP_URL": "@app-url"
-    },
-    "build": {
-        "env": {
-            "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "@clerk-publishable-key",
-            "NEXT_PUBLIC_API_URL": "@api-url",
-            "NEXT_PUBLIC_APP_URL": "@app-url"
-        }
-    },
     "rewrites": [
         {
             "source": "/api/:path*",
