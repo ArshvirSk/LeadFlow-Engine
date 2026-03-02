@@ -19,7 +19,9 @@ WORKDIR /app
 COPY packages/types ./packages/types
 COPY packages/api ./packages/api
 
-RUN pnpm --filter api build
+# Build @leadflow/types first so its dist/ exists when api's tsc runs
+RUN pnpm --filter @leadflow/types build
+RUN pnpm --filter @leadflow/api build
 
 # ─── Stage 3: runtime ─────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner

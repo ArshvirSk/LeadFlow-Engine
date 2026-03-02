@@ -17,6 +17,8 @@ WORKDIR /app
 COPY packages/types ./packages/types
 COPY packages/workers ./packages/workers
 
+# Build @leadflow/types first so its dist/ exists when workers' tsc runs
+RUN pnpm --filter @leadflow/types build
 RUN pnpm --filter workers build
 
 # ─── Stage 3: runtime ─────────────────────────────────────────────────────────
