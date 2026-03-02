@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, getTableColumns, lt, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { db } from '../db/index.js';
@@ -53,7 +53,7 @@ export async function leadsRoutes(app: FastifyInstance) {
 
         // leftJoin so leads without scores (not yet scored) still appear
         // Exclude embedding column — 1536 floats/row is wasteful for the feed UI
-        const { embedding: _emb, ...leadCols } = leads;
+        const { embedding: _emb, ...leadCols } = getTableColumns(leads);
         const rows = await db
             .select({ leads: leadCols, lead_scores: leadScores })
             .from(leads)
