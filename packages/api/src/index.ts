@@ -36,7 +36,20 @@ const app = Fastify({
 // ── Plugins ───────────────────────────────────────────────────────────────────
 await app.register(helmet, { contentSecurityPolicy: false });
 await app.register(cors, {
-    origin: [process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'],
+    origin: (origin, cb) => {
+        const allowed = [
+            'http://localhost:3000',
+            'http://localhost:3001',
+            process.env.NEXT_PUBLIC_APP_URL,
+            process.env.APP_URL,
+        ].filter(Boolean) as string[];
+        // Allow requests with no origin (server-to-server, curl, Render health checks)
+        if (!origin || allowed.some(o => origin.startsWith(o)) || origin.endsWith('.vercel.app')) {
+            cb(null, true);
+        } else {
+            cb(new Error('CORS: origin not allowed'), false);
+        }
+    },
     credentials: true,
 });
 // Global rate limit: 100 req/min (spec: AUTH-T04)
