@@ -14,11 +14,13 @@ import type {
 } from '@leadflow/types';
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+const isTLS = REDIS_URL.startsWith('rediss://');
 
 export const connection = new Redis(REDIS_URL, {
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
   lazyConnect: false,
+  ...(isTLS ? { tls: {} } : {}),
 });
 
 connection.on('error', (err: Error) => {
