@@ -52,8 +52,10 @@ export async function leadsRoutes(app: FastifyInstance) {
         }
 
         // leftJoin so leads without scores (not yet scored) still appear
+        // Exclude embedding column — 1536 floats/row is wasteful for the feed UI
+        const { embedding: _emb, ...leadCols } = leads;
         const rows = await db
-            .select()
+            .select({ leads: leadCols, lead_scores: leadScores })
             .from(leads)
             .leftJoin(
                 leadScores,

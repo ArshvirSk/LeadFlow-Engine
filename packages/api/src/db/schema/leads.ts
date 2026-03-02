@@ -14,14 +14,15 @@ import {
 import { sql } from 'drizzle-orm';
 
 // ─── pgvector custom type ─────────────────────────────────────────────────────
-const vectorType = customType<{ data: number[]; driverData: string }>({
+const vectorType = customType<{ data: number[] | null; driverData: string }>({
   dataType() {
     return 'vector(1536)';
   },
   toDriver(value: number[]): string {
     return `[${value.join(',')}]`;
   },
-  fromDriver(value: string): number[] {
+  fromDriver(value: string): number[] | null {
+    if (value == null) return null;
     return value.slice(1, -1).split(',').map(Number);
   },
 });
