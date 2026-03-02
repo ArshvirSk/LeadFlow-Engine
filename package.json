@@ -1,0 +1,25 @@
+{
+    "name": "leadflow-engine",
+    "version": "0.0.1",
+    "private": true,
+    "scripts": {
+        "dev": "turbo run dev --parallel --filter=!@leadflow/extension",
+        "build": "turbo run build",
+        "lint": "turbo run lint",
+        "type-check": "turbo run type-check",
+        "db:generate": "pnpm --filter api db:generate",
+        "db:migrate": "pnpm --filter api db:migrate",
+        "db:studio": "pnpm --filter api db:studio",
+        "workers": "pnpm --filter workers dev"
+    },
+    "devDependencies": {
+        "@types/node": "^20.14.0",
+        "turbo": "^2.1.0",
+        "typescript": "^5.5.0"
+    },
+    "engines": {
+        "node": ">=20.0.0",
+        "pnpm": ">=9.0.0"
+    },
+    "packageManager": "pnpm@9.4.0"
+}

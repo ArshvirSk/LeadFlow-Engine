@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# Environment files — ALL .env variants, in root and every package
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+# Keep .env.example committed (it has no secrets)
+!.env.example
+
+# Database — keep migrations committed (needed for production deploy)
+# packages/api/drizzle/  <-- intentionally NOT ignored
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Python (venv from PDF extraction)
+.venv/
+__pycache__/
+*.py[cod]
+prd_extracted.txt
+
+# PRD binary files (large, not needed in repo)
+*.docx
+*.pdf
+*.doc
+
+# Plasmo extension build
+packages/extension/.plasmo/
+packages/extension/build/

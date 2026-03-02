@@ -1,0 +1,44 @@
+{
+    "framework": "nextjs",
+    "buildCommand": "pnpm --filter @leadflow/web build",
+    "outputDirectory": "packages/web/.next",
+    "installCommand": "pnpm install --frozen-lockfile",
+    "devCommand": "pnpm --filter @leadflow/web dev",
+    "env": {
+        "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "@clerk-publishable-key",
+        "NEXT_PUBLIC_API_URL": "@api-url",
+        "NEXT_PUBLIC_APP_URL": "@app-url"
+    },
+    "build": {
+        "env": {
+            "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "@clerk-publishable-key",
+            "NEXT_PUBLIC_API_URL": "@api-url",
+            "NEXT_PUBLIC_APP_URL": "@app-url"
+        }
+    },
+    "rewrites": [
+        {
+            "source": "/api/:path*",
+            "destination": "https://leadflow-api.fly.dev/api/:path*"
+        }
+    ],
+    "headers": [
+        {
+            "source": "/(.*)",
+            "headers": [
+                {
+                    "key": "X-Content-Type-Options",
+                    "value": "nosniff"
+                },
+                {
+                    "key": "X-Frame-Options",
+                    "value": "DENY"
+                },
+                {
+                    "key": "Referrer-Policy",
+                    "value": "strict-origin-when-cross-origin"
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,81 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { UserButton } from '@clerk/nextjs';
+import { cn } from '@/lib/utils';
+import {
+  LayoutDashboard,
+  Zap,
+  Send,
+  BarChart2,
+  BookOpen,
+  Eye,
+  Settings,
+  Puzzle,
+} from 'lucide-react';
+
+const NAV_ITEMS = [
+  { href: '/leads', label: 'Lead Feed', icon: Zap },
+  { href: '/outreach', label: 'Outreach', icon: Send },
+  { href: '/briefings', label: 'Briefings', icon: BookOpen },
+  { href: '/watchlist', label: 'Watchlist', icon: Eye },
+  { href: '/analytics', label: 'Analytics', icon: BarChart2 },
+  { href: '/settings', label: 'Settings', icon: Settings },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+
+  return (
+    <aside className="flex h-full w-60 flex-col border-r bg-card">
+      {/* Logo */}
+      <div className="flex h-16 items-center gap-2 border-b px-4">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500 text-white">
+          <Zap className="h-4 w-4" />
+        </div>
+        <span className="font-bold text-lg tracking-tight">LeadFlow</span>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 space-y-1 p-3">
+        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+          const active = pathname === href || pathname.startsWith(href + '/');
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                active
+                  ? 'bg-accent text-accent-foreground'
+                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+              )}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Extension CTA */}
+      <div className="m-3 rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 font-medium text-foreground mb-1">
+          <Puzzle className="h-3.5 w-3.5" />
+          Browser Extension
+        </div>
+        <p>Capture leads from any job board directly.</p>
+        <Link href="/settings#extension" className="mt-1.5 block text-primary hover:underline">
+          Install extension →
+        </Link>
+      </div>
+
+      {/* User */}
+      <div className="flex items-center gap-3 border-t p-4">
+        <UserButton afterSignOutUrl="/sign-in" />
+        <span className="text-sm text-muted-foreground truncate">My Account</span>
+      </div>
+    </aside>
+  );
+}

@@ -1,0 +1,40 @@
+{
+    "name": "@leadflow/extension",
+    "displayName": "LeadFlow Engine",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "plasmo dev",
+        "build": "plasmo build",
+        "package": "plasmo package",
+        "type-check": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@clerk/chrome-extension": "^1.2.0",
+        "@leadflow/types": "workspace:*",
+        "@plasmohq/messaging": "^0.6.2",
+        "@plasmohq/storage": "^1.11.0",
+        "plasmo": "^0.89.3",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
+    },
+    "devDependencies": {
+        "@types/chrome": "^0.0.268",
+        "@types/react": "^18.3.3",
+        "@types/react-dom": "^18.3.0",
+        "typescript": "^5.5.0"
+    },
+    "manifest": {
+        "host_permissions": [
+            "https://www.upwork.com/*",
+            "https://www.linkedin.com/*",
+            "https://contra.com/*",
+            "https://www.freelancer.com/*",
+            "https://www.toptal.com/*"
+        ],
+        "permissions": [
+            "storage",
+            "identity"
+        ]
+    }
+}

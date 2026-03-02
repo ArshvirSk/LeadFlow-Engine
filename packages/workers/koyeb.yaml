@@ -1,0 +1,65 @@
+# Koyeb service manifest — LeadFlow Workers
+# Deploy via Koyeb dashboard or CLI:
+#   koyeb app create leadflow-workers
+#   koyeb service create \
+#     --app leadflow-workers \
+#     --name workers \
+#     --docker-dockerfile packages/workers/Dockerfile \
+#     --ports 3001:http \
+#     --routes /:3001 \
+#     --checks 3001:http:/health \
+#     --regions was \
+#     --instance-type nano \
+#     --env NODE_ENV=production \
+#     --env HEALTH_PORT=3001 \
+#     --env DATABASE_URL=<secret> \
+#     --env REDIS_URL=<secret> \
+#     --env ANTHROPIC_API_KEY=<secret> \
+#     --env OPENAI_API_KEY=<secret> \
+#     --env CRUNCHBASE_API_KEY=<secret> \
+#     --env REDDIT_CLIENT_ID=<secret> \
+#     --env REDDIT_CLIENT_SECRET=<secret> \
+#     --env REDDIT_USER_AGENT="leadflow-engine/1.0" \
+#     --env RESEND_API_KEY=<secret> \
+#     --env LLM_PROVIDER=claude \
+#     --git-url https://github.com/<you>/leadflow-engine \
+#     --git-branch main
+
+name: leadflow-workers
+services:
+  - name: workers
+    type: web              # Koyeb has no "worker" type — web with a health port works fine
+    ports:
+      - port: 3001
+        protocol: http
+    routes:
+      - path: /
+        port: 3001
+    checks:
+      - type: http
+        path: /health
+        port: 3001
+        initial_delay: 20  # workers take longer to boot (BullMQ + adapter init)
+        period: 60
+        timeout: 5
+    instance_type: nano    # 256 MB RAM, 0.1 vCPU — free tier
+    regions:
+      - was                # keep same region as API to minimise Redis latency
+    scaling:
+      min: 1
+      max: 1
+    docker:
+      dockerfile: packages/workers/Dockerfile
+    env:
+      - key: NODE_ENV
+        value: production
+      - key: HEALTH_PORT
+        value: "3001"
+      - key: LOG_LEVEL
+        value: info
+      - key: LLM_PROVIDER
+        value: claude
+      # Set these as secrets in Koyeb dashboard:
+      # DATABASE_URL, REDIS_URL, ANTHROPIC_API_KEY, OPENAI_API_KEY,
+      # CRUNCHBASE_API_KEY, REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET,
+      # REDDIT_USER_AGENT, RESEND_API_KEY
