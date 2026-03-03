@@ -101,7 +101,7 @@ INFRA-T01 → INFRA-T02 → INFRA-T03 → INFRA-T04
 | Dependency                       | Risk   | Action Required                                                                    | Blocks                          |
 | -------------------------------- | ------ | ---------------------------------------------------------------------------------- | ------------------------------- |
 | **Anthropic Claude API key**     | Low    | Create Anthropic account, set spend limit, store as env var                        | L3-T02, L6-T02                  |
-| **OpenAI API key** (embeddings)  | Low    | Create OpenAI account for `text-embedding-3-small`, set spend limit                | L3-T03, DB-T04                  |
+| **OpenAI API key** (embeddings)  | Low    | Create OpenAI account for `gemini-embedding-001`, set spend limit                  | L3-T03, DB-T04                  |
 | **Crunchbase API account**       | High   | Paid plan required for company health data. Evaluate Basic ($29/mo) vs. Enterprise | FR02-T01                        |
 | **Reddit API OAuth credentials** | Medium | Register app at reddit.com/prefs/apps; OAuth2 client credentials                   | L1-T06                          |
 | **Clerk account**                | Low    | Create Clerk project; configure JWT template; get publishable + secret keys        | AUTH-T01                        |

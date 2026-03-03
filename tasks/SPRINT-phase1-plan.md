@@ -119,10 +119,10 @@
 
 ### Friday
 
-| Task ID | Title                                              | Estimate | Owner |
-| ------- | -------------------------------------------------- | -------- | ----- |
-| L3-T03  | OpenAIProvider (text-embedding-3-small, batch 100) | 3 SP     | Dev   |
-| L2-T08  | Embedding generation for normalized leads          | 3 SP     | Dev   |
+| Task ID | Title                                            | Estimate | Owner |
+| ------- | ------------------------------------------------ | -------- | ----- |
+| L3-T03  | OpenAIProvider (gemini-embedding-001, batch 100) | 3 SP     | Dev   |
+| L2-T08  | Embedding generation for normalized leads        | 3 SP     | Dev   |
 
 **Week 3 Deliverable:** Fully normalized leads with embeddings stored in PostgreSQL. LLMProvider + OpenAIProvider tested.
 

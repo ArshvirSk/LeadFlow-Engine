@@ -277,6 +277,7 @@ export const briefingLog = pgTable('briefing_log', {
     actions_taken: integer('actions_taken').notNull().default(0),
     channel: text('channel').notNull().default('email'),
     lead_count: integer('lead_count').notNull().default(0),
+    content: jsonb('content'),
 }, (t) => ({
     userIdIdx: index('briefing_log_user_id_idx').on(t.user_id),
     generatedAtIdx: index('briefing_log_generated_at_idx').on(t.generated_at),

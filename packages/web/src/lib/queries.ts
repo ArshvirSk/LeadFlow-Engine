@@ -77,13 +77,14 @@ export function useRequestDraft() {
     const { getToken } = useToken();
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: async ({ lead_id, channels }: { lead_id: string; channels: string[] }) => {
+        mutationFn: async ({ lead_id, channels, portfolio_piece_id }: { lead_id: string; channels: string[]; portfolio_piece_id?: string }) => {
             const token = await getToken();
-            return outreachApi.requestDraft(lead_id, channels, token);
+            return outreachApi.requestDraft(lead_id, channels, token, portfolio_piece_id);
         },
         onSuccess: (_data, vars) => {
             // Immediately start polling for the draft
             qc.invalidateQueries({ queryKey: ['lead-draft', vars.lead_id] });
+            qc.invalidateQueries({ queryKey: ['outreach', 'queue'] });
         },
     });
 }
@@ -117,6 +118,21 @@ export function useApproveOutreach() {
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ['outreach', 'queue'] });
         },
+    });
+}
+
+// ── FR-04: Optimal send window ────────────────────────────────────────────────────────────────────────
+export function useOptimalSendWindow(leadId: string | null) {
+    const { getToken, ready } = useToken();
+    return useQuery({
+        queryKey: ['lead-send-window', leadId],
+        queryFn: async () => {
+            const token = await getToken();
+            return leadsApi.getOptimalSendWindow(leadId!, token);
+        },
+        enabled: ready && !!leadId,
+        staleTime: 15 * 60 * 1000, // 15 minutes
+        retry: false,
     });
 }
 
@@ -157,6 +173,7 @@ export function useUpdateProfile() {
         },
         onSuccess: () => {
             qc.invalidateQueries({ queryKey: ['profile'] });
+            qc.invalidateQueries({ queryKey: ['leads'] });
         },
     });
 }
@@ -187,7 +204,73 @@ export function useWatchlist() {
     });
 }
 
-// ── Meta / reference data ─────────────────────────────────────────────────────
+// ── NL Search — FR-11 ────────────────────────────────────────────────────────
+export function useNLSearch() {
+    const { getToken } = useToken();
+    return useMutation({
+        mutationFn: async (query: string) => {
+            const token = await getToken();
+            return leadsApi.nlSearch(query, token);
+        },
+    });
+}
+
+// ── Portfolio ─────────────────────────────────────────────────────────────────
+export function usePortfolio() {
+    const { getToken, ready } = useToken();
+    return useQuery({
+        queryKey: ['portfolio'],
+        queryFn: async () => {
+            const token = await getToken();
+            return profileApi.getPortfolio(token);
+        },
+        enabled: ready,
+    });
+}
+
+export function useAddPortfolioPiece() {
+    const { getToken } = useToken();
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async (data: { title: string; description: string; url?: string; outcomes?: string }) => {
+            const token = await getToken();
+            return profileApi.addPortfolioPiece(data, token);
+        },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['portfolio'] });
+        },
+    });
+}
+
+export function useDeletePortfolioPiece() {
+    const { getToken } = useToken();
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const token = await getToken();
+            return profileApi.deletePortfolioPiece(id, token);
+        },
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['portfolio'] });
+        },
+    });
+}
+
+// ── Pattern report — FR-08 ────────────────────────────────────────────────────
+export function usePatternReport() {
+    const { getToken, ready } = useToken();
+    return useQuery({
+        queryKey: ['analytics', 'pattern-report'],
+        queryFn: async () => {
+            const token = await getToken();
+            return (await import('./api')).analyticsApi.patternReport(token);
+        },
+        enabled: ready,
+        retry: false, // 404 means no report yet — don't retry
+    });
+}
+
+
 /**
  * Returns the canonical skills list from GET /api/v1/meta/skills.
  * Public endpoint — no auth token required.

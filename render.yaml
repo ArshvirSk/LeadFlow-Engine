@@ -8,8 +8,8 @@ services:
     name: leadflow-api
     runtime: docker
     dockerfilePath: packages/api/Dockerfile
-    dockerContext: .   # repo root — needed for pnpm workspace resolution
-    plan: free         # 512 MB RAM, 0.1 vCPU, 750 hrs/month
+    dockerContext: . # repo root — needed for pnpm workspace resolution
+    plan: free # 512 MB RAM, 0.1 vCPU, 750 hrs/month
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -48,7 +48,7 @@ services:
         sync: false
 
   # ─── Workers ─────────────────────────────────────────────────────────────
-  - type: web          # Render has no free "background worker" — web + health is identical
+  - type: web # Render has no free "background worker" — web + health is identical
     name: leadflow-workers
     runtime: docker
     dockerfilePath: packages/workers/Dockerfile

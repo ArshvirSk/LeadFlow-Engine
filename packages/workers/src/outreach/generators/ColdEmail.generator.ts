@@ -1,9 +1,10 @@
 import { getLLMProvider } from '../../llm/LLMProviderFactory.js';
-import type { OutreachContext } from '../OutreachContextBuilder.js';
+import type { BoomerangCtx, OutreachContext } from '../OutreachContextBuilder.js';
+import { buildTriggerAngle, getTimeAgo } from '../OutreachContextBuilder.js';
 
 // ─── Spec constraints ─────────────────────────────────────────────────────────
-const MIN_WORDS   = 100;
-const MAX_WORDS   = 160;
+const MIN_WORDS = 100;
+const MAX_WORDS = 160;
 const MAX_SUBJECT = 8;   // words
 const MAX_RETRIES = 1;
 
@@ -42,11 +43,11 @@ function countWords(text: string): number {
 function validateEmail(subject: string, body: string): ValidationResult {
   const errors: string[] = [];
 
-  const bodyWords    = countWords(body);
+  const bodyWords = countWords(body);
   const subjectWords = countWords(subject);
 
-  if (bodyWords < MIN_WORDS)   errors.push(`body too short: ${bodyWords} words (min ${MIN_WORDS})`);
-  if (bodyWords > MAX_WORDS)   errors.push(`body too long: ${bodyWords} words (max ${MAX_WORDS})`);
+  if (bodyWords < MIN_WORDS) errors.push(`body too short: ${bodyWords} words (min ${MIN_WORDS})`);
+  if (bodyWords > MAX_WORDS) errors.push(`body too long: ${bodyWords} words (max ${MAX_WORDS})`);
   if (subjectWords > MAX_SUBJECT) errors.push(`subject too long: ${subjectWords} words (max ${MAX_SUBJECT})`);
 
   const bodyLower = body.toLowerCase();
@@ -55,7 +56,19 @@ function validateEmail(subject: string, body: string): ValidationResult {
 
   return { ok: errors.length === 0, errors };
 }
+// ─── Contextual helpers ──────────────────────────────────────────────────────────
 
+function buildBoomerangInstruction(bc: BoomerangCtx): string {
+  const timeAgo = getTimeAgo(bc.contacted_at);
+  switch (bc.outcome) {
+    case 'won':
+      return `\nBOOMERANG CONTEXT: You won a similar project ${timeAgo} ago. Start your opening line with a brief callback to that success — one sentence max.`;
+    case 'lost':
+      return `\nBOOMERANG CONTEXT: You pitched a similar project ${timeAgo} ago without winning it. Open with a fresh angle and acknowledge the time passed — do NOT say you lost or weren\'t chosen.`;
+    case 'no_reply':
+      return `\nBOOMERANG CONTEXT: You reached out about a similar project ${timeAgo} ago with no reply. Acknowledge it briefly, then give a compelling new reason to respond now.`;
+  }
+}
 // ─── Generator ────────────────────────────────────────────────────────────────
 
 export class ColdEmailGenerator {
@@ -72,7 +85,7 @@ export class ColdEmailGenerator {
         return { ...draft, passed_validation: true };
       }
 
-      lastDraft  = draft;
+      lastDraft = draft;
       lastErrors = validation.errors;
       attempt++;
     }
@@ -95,8 +108,16 @@ export class ColdEmailGenerator {
 
     const portfolioSnippet = ctx.portfolio.length > 0
       ? `\nRelevant portfolio:\n${ctx.portfolio
-          .map(p => `- ${p.title}${p.key_outcome ? ': ' + p.key_outcome : ''}`)
-          .join('\n')}`
+        .map(p => `- ${p.title}${p.key_outcome ? ': ' + p.key_outcome : ''}`)
+        .join('\n')}`
+      : '';
+
+    const boomerangNote = ctx.boomerang_context
+      ? buildBoomerangInstruction(ctx.boomerang_context)
+      : '';
+
+    const triggerNote = ctx.trigger_event_context
+      ? `\nCOMPANY NEWS: ${buildTriggerAngle(ctx.trigger_event_context)} — weave this naturally into your opening paragraph.`
       : '';
 
     const prompt = `Write a cold outreach email for a freelance opportunity.
@@ -110,7 +131,7 @@ LEAD: "${ctx.lead.title}"
 Source: ${ctx.lead.source}
 Budget: ${ctx.lead.budget}
 Skills required: ${ctx.lead.skills_required.join(', ') || 'not specified'}
-${ctx.score?.ai_summary ? `AI assessment: ${ctx.score.ai_summary}` : ''}
+${ctx.score?.ai_summary ? `AI assessment: ${ctx.score.ai_summary}` : ''}${boomerangNote}${triggerNote}
 ${retryNote}
 
 RULES:
@@ -128,7 +149,7 @@ Respond as JSON:
 
     const result = await llm.complete({
       system: 'You are an expert cold email writer for freelancers. Output valid JSON only.',
-      user:   prompt,
+      user: prompt,
       maxTokens: 600,
       temperature: 0.5,
     });
@@ -140,17 +161,17 @@ Respond as JSON:
       parsed = JSON.parse(cleaned) as { subject: string; body: string };
     } catch {
       // Fallback: try to extract with regex
-      const subMatch  = result.content.match(/"subject"\s*:\s*"([^"]+)"/);
+      const subMatch = result.content.match(/"subject"\s*:\s*"([^"]+)"/);
       const bodyMatch = result.content.match(/"body"\s*:\s*"([\s\S]+?)(?="\s*})/);
       parsed = {
-        subject: subMatch?.[1]  ?? `Freelance inquiry: ${ctx.lead.title.slice(0, 40)}`,
-        body:    bodyMatch?.[1] ?? result.content,
+        subject: subMatch?.[1] ?? `Freelance inquiry: ${ctx.lead.title.slice(0, 40)}`,
+        body: bodyMatch?.[1] ?? result.content,
       };
     }
 
     return {
-      subject:    parsed.subject.trim(),
-      body:       parsed.body.trim(),
+      subject: parsed.subject.trim(),
+      body: parsed.body.trim(),
       word_count: countWords(parsed.body),
     };
   }

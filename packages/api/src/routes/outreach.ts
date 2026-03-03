@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { db } from '../db/index.js';
@@ -8,6 +8,7 @@ import { outreachDraftsQueue, scheduledSendsQueue } from '../queues/index.js';
 const RequestDraftSchema = z.object({
     lead_id: z.string().uuid(),
     channels: z.array(z.enum(['email', 'linkedin', 'twitter', 'clipboard'])).min(1),
+    portfolio_piece_id: z.string().uuid().optional(), // FR-03: portfolio override
 });
 
 const ApproveSchema = z.object({
@@ -23,7 +24,7 @@ export async function outreachRoutes(app: FastifyInstance) {
         config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     }, async (req, reply) => {
         const userId = (req as any).clerkUserId as string;
-        const { lead_id, channels } = RequestDraftSchema.parse(req.body);
+        const { lead_id, channels, portfolio_piece_id } = RequestDraftSchema.parse(req.body);
 
         const [lead] = await db.select().from(leads).where(eq(leads.id, lead_id)).limit(1);
         if (!lead) return reply.status(404).send({ error: 'Lead not found' });
@@ -42,6 +43,7 @@ export async function outreachRoutes(app: FastifyInstance) {
             lead_id,
             user_id: userId,
             approval_queue_item_id: inserted.id,
+            ...(portfolio_piece_id ? { portfolio_piece_id } : {}),
         });
         return reply.status(202).send({ jobId: job.id });
     });
@@ -72,13 +74,27 @@ export async function outreachRoutes(app: FastifyInstance) {
         return reply.send({ status: 'ready', drafts: item.drafts, item_id: item.id });
     });
 
-    // GET /outreach/queue — approval queue for current user
+    // GET /outreach/queue — approval queue for current user (pending generation + completed/ready to approve)
     app.get('/outreach/queue', async (req, reply) => {
         const userId = (req as any).clerkUserId as string;
         const items = await db
-            .select()
+            .select({
+                id: approvalQueue.id,
+                user_id: approvalQueue.user_id,
+                lead_id: approvalQueue.lead_id,
+                drafts: approvalQueue.drafts,
+                status: approvalQueue.status,
+                expires_at: approvalQueue.expires_at,
+                created_at: approvalQueue.created_at,
+                lead_title: leads.title,
+                lead_source: leads.source,
+            })
             .from(approvalQueue)
-            .where(and(eq(approvalQueue.user_id, userId), eq(approvalQueue.status, 'pending')))
+            .leftJoin(leads, eq(approvalQueue.lead_id, leads.id))
+            .where(and(
+                eq(approvalQueue.user_id, userId),
+                inArray(approvalQueue.status, ['pending', 'completed']),
+            ))
             .orderBy(desc(approvalQueue.created_at));
         return reply.send(items);
     });

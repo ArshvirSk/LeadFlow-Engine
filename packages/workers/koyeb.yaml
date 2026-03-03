@@ -28,7 +28,7 @@
 name: leadflow-workers
 services:
   - name: workers
-    type: web              # Koyeb has no "worker" type — web with a health port works fine
+    type: web # Koyeb has no "worker" type — web with a health port works fine
     ports:
       - port: 3001
         protocol: http
@@ -39,12 +39,12 @@ services:
       - type: http
         path: /health
         port: 3001
-        initial_delay: 20  # workers take longer to boot (BullMQ + adapter init)
+        initial_delay: 20 # workers take longer to boot (BullMQ + adapter init)
         period: 60
         timeout: 5
-    instance_type: nano    # 256 MB RAM, 0.1 vCPU — free tier
+    instance_type: nano # 256 MB RAM, 0.1 vCPU — free tier
     regions:
-      - was                # keep same region as API to minimise Redis latency
+      - was # keep same region as API to minimise Redis latency
     scaling:
       min: 1
       max: 1

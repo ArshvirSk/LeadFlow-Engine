@@ -2,7 +2,7 @@ import type { LLMCompletion, LLMPrompt, LLMProvider } from '@leadflow/types';
 import OpenAI from 'openai';
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4o';
-const EMBED_MODEL = 'text-embedding-3-small';
+const EMBED_MODEL = 'gemini-embedding-001';
 const EMBED_BATCH_SIZE = 100; // OpenAI max per call
 
 export class OpenAIProvider implements LLMProvider {

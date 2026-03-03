@@ -59,8 +59,8 @@ export const leadScores = pgTable('lead_scores', {
     alliance_eligible: boolean('alliance_eligible').notNull().default(false),
     golden_hour_notified_at: timestamp('golden_hour_notified_at'),
     is_autopilot: boolean('is_autopilot').notNull().default(false),
-    actioned_from_briefing: boolean('actioned_from_briefing').notNull().default(false),
-    created_at: timestamp('created_at').notNull().defaultNow(),
+    actioned_from_briefing: boolean('actioned_from_briefing').notNull().default(false), debrief: jsonb('debrief'),
+    debrief_generated_at: timestamp('debrief_generated_at'), created_at: timestamp('created_at').notNull().defaultNow(),
     updated_at: timestamp('updated_at').notNull().defaultNow(),
 });
 
@@ -108,8 +108,73 @@ export const portfolioPieces = pgTable('portfolio_pieces', {
     title: text('title').notNull().default(''),
     description: text('description').notNull().default(''),
     outcomes: text('outcomes'),
+    url: text('url'),
     embedding: vectorType('embedding'),
     embedding_status: text('embedding_status').notNull().default('pending'),
     created_at: timestamp('created_at').notNull().defaultNow(),
     updated_at: timestamp('updated_at').notNull().defaultNow(),
+});
+
+// ─── Lead History (180-day boomerang store) ───────────────────────────────────
+export const leadHistory = pgTable('lead_history', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    user_id: text('user_id').notNull(),
+    lead_id: uuid('lead_id'),
+    lead_snapshot: jsonb('lead_snapshot').notNull(),
+    lead_embedding: vectorType('lead_embedding'),
+    contacted_at: timestamp('contacted_at').notNull(),
+    outcome: text('outcome'), // won | lost | no_reply
+    archived_at: timestamp('archived_at').notNull().defaultNow(),
+});
+
+// ─── Watchlist (for trigger event monitoring) ─────────────────────────────────
+export const watchlist = pgTable('watchlist', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    user_id: text('user_id').notNull(),
+    company_name: text('company_name').notNull(),
+    company_url: text('company_url'),
+    company_crunchbase_id: text('company_crunchbase_id'),
+    github_stars_baseline: jsonb('github_stars_baseline'),
+    latest_funding_round_at: timestamp('latest_funding_round_at'),
+    last_checked_at: timestamp('last_checked_at'),
+    created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ─── Trigger Events ───────────────────────────────────────────────────────────
+export const triggerEvents = pgTable('trigger_events', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    watchlist_id: uuid('watchlist_id').notNull(),
+    user_id: text('user_id').notNull(),
+    company_name: text('company_name').notNull(),
+    event_type: text('event_type').notNull(),
+    event_date: timestamp('event_date').notNull(),
+    event_data: jsonb('event_data').notNull().default({}),
+    lead_id: uuid('lead_id'),
+    created_at: timestamp('created_at').notNull().defaultNow(),
+});
+
+// ─── Briefing Log ────────────────────────────────────────────────────────────
+export const briefingLog = pgTable('briefing_log', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    user_id: text('user_id').notNull(),
+    generated_at: timestamp('generated_at').notNull().defaultNow(),
+    delivered_at: timestamp('delivered_at'),
+    opened_at: timestamp('opened_at'),
+    suppressed: boolean('suppressed').notNull().default(false),
+    actions_taken: integer('actions_taken').notNull().default(0),
+    channel: text('channel').notNull().default('email'),
+    lead_count: integer('lead_count').notNull().default(0),
+    content: jsonb('content'),
+});
+
+// ─── Outreach Sends (for debrief context) ─────────────────────────────────────
+export const outreachSends = pgTable('outreach_sends', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    user_id: text('user_id').notNull(),
+    lead_id: uuid('lead_id').notNull(),
+    channel: text('channel').notNull(),
+    draft_content: text('draft_content').notNull(),
+    status: text('status').notNull().default('draft'),
+    sent_at: timestamp('sent_at'),
+    created_at: timestamp('created_at').notNull().defaultNow(),
 });

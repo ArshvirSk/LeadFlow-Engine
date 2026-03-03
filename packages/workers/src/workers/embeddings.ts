@@ -5,7 +5,12 @@ import { eq, sql } from 'drizzle-orm';
 import { db } from '../db.js';
 import { getLLMProvider } from '../llm/LLMProviderFactory.js';
 import { connection } from '../redis.js';
-import { leads, portfolioPieces } from '../schema.js';
+import { leads, portfolioPieces, userProfiles } from '../schema.js';
+import { BoomerangDetector } from '../scoring/BoomerangDetector.js';
+import { PortfolioMatcher } from '../scoring/PortfolioMatcher.js';
+
+const boomerangDetector = new BoomerangDetector();
+const portfolioMatcher = new PortfolioMatcher();
 
 // Cosine similarity threshold for deduplication (L3-T06).
 // pgvector <=> returns cosine *distance* (0 = identical, 2 = opposite),
@@ -109,6 +114,37 @@ export const leadEmbeddingsWorker = new Worker<LeadEmbeddingJob>(
                 `[dedup] Suppressed as near-duplicate of "${dupe.title}" (${dupe.id}) ` +
                 `— similarity ${Number(dupe.similarity).toFixed(4)}`
             );
+            await job.updateProgress(100);
+            return; // skip boomerang + portfolio for duplicates
+        }
+
+        // ── FR-05: Boomerang detection (per user) ──────────────────────────────
+        // ── FR-03: Portfolio matching (per user) ───────────────────────────────
+        const users = await db
+            .select({ clerk_user_id: userProfiles.clerk_user_id })
+            .from(userProfiles)
+            .where(eq(userProfiles.onboarding_completed, true));
+
+        for (const user of users) {
+            // Boomerang: compare lead against this user's 180-day contact history
+            const boomerangResult = await boomerangDetector.detect(user.clerk_user_id, embedding);
+            if (boomerangResult.is_boomerang) {
+                await db.update(leads).set({
+                    boomerang: true,
+                    boomerang_ref: boomerangResult.ref_id ?? null,
+                    boomerang_context: boomerangResult.context ?? null,
+                }).where(eq(leads.id, lead_id));
+                job.log(`[boomerang] Lead ${lead_id} is a boomerang for user ${user.clerk_user_id} (similarity ${boomerangResult.context?.similarity})`);
+            }
+
+            // Portfolio: find top matching pieces using embedding similarity
+            const matches = await portfolioMatcher.match(embedding, user.clerk_user_id);
+            if (matches.length > 0) {
+                await db.update(leads).set({
+                    portfolio_matches: matches,
+                }).where(eq(leads.id, lead_id));
+                job.log(`[portfolio] Lead ${lead_id} matched ${matches.length} portfolio pieces for user ${user.clerk_user_id}`);
+            }
         }
 
         await job.updateProgress(100);

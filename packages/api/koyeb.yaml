@@ -46,12 +46,12 @@ services:
         initial_delay: 15
         period: 30
         timeout: 5
-    instance_type: nano    # 256 MB RAM, 0.1 vCPU — free tier
+    instance_type: nano # 256 MB RAM, 0.1 vCPU — free tier
     regions:
-      - was                # Washington DC — change to: fra (EU), sin (Asia)
+      - was # Washington DC — change to: fra (EU), sin (Asia)
     scaling:
       min: 1
-      max: 1               # keep at 1 on free tier
+      max: 1 # keep at 1 on free tier
     docker:
       dockerfile: packages/api/Dockerfile
       # Build context must be repo root for pnpm workspace to resolve

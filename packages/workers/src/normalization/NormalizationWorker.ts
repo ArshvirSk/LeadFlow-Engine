@@ -6,6 +6,7 @@ import { db } from '../db.js';
 import { enrichCompanyHealth } from '../enrichment/companyHealth.js';
 import { connection, makeQueue } from '../redis.js';
 import { leads } from '../schema.js';
+import { inferTimezone } from '../services/sendWindow.js';
 import { extractBudget } from './extractors/budget.extractor.js';
 import { extractLocation } from './extractors/location.extractor.js';
 import { extractSkills } from './extractors/skills.extractor.js';
@@ -65,7 +66,8 @@ export const normalizationWorker = new Worker<RawLeadJob>(
         const skills = extractSkills(fullText);
         const budget = extractBudget(fullText);
         const loc = extractLocation(fullText);
-
+        // ── FR-04: Infer recipient timezone from location ───────────────────────
+        const recipient_timezone = inferTimezone(loc.location);
         // ── Determine golden hour ───────────────────────────────────────────────
         const ingestedAt = new Date(data.ingested_at);
         const golden_hour = Date.now() - ingestedAt.getTime() < GOLDEN_HOUR_WINDOW_MS;
@@ -100,6 +102,7 @@ export const normalizationWorker = new Worker<RawLeadJob>(
                 budget_max: budget.max !== null ? String(budget.max) : null,
                 location: loc.location,
                 remote: loc.remote,
+                recipient_timezone,
                 status: 'new',
                 golden_hour,
                 ingested_at: ingestedAt,

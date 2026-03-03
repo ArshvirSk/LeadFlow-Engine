@@ -208,7 +208,7 @@ _As the system, I transform every raw lead event from any source into a consiste
 - **Estimate:** 3 SP
 - **Owner:** Backend / AI
 - **Acceptance Criteria:**
-  1. OpenAI `text-embedding-3-small` embedding generated for every normalized lead
+  1. OpenAI `gemini-embedding-001` embedding generated for every normalized lead
   2. Embedding input: concatenation of `title + skills_required.join(', ') + description[:500]`
   3. Embedding stored in `leads.embedding` VECTOR(1536) column
   4. Batched API calls: max 100 embeddings per OpenAI request to minimize latency
@@ -218,7 +218,7 @@ _As the system, I transform every raw lead event from any source into a consiste
 - Create `packages/workers/src/normalization/EmbeddingService.ts`
 - Implement `generateLeadEmbedding(lead: Partial<Lead>): Promise<number[]>`
 - Concatenate text: `${lead.title} ${lead.skills_required?.join(' ')} ${lead.description?.slice(0, 500)}`
-- Batch leads in groups of 100, call `openai.embeddings.create({ model: 'text-embedding-3-small', input: batch })`
+- Batch leads in groups of 100, call `openai.embeddings.create({ model: 'gemini-embedding-001', input: batch })`
 - Store embedding in lead record before publishing to `normalized.leads` queue
 - Track OpenAI embedding API costs in Datadog
 - Write unit test: verify embedding is 1536-dimensional float array

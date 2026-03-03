@@ -131,11 +131,17 @@ export const normalizedLeadsWorker = new Worker<NormalizationJob>(
 
             const result = await engine.score(leadForScoring, profileForScoring);
 
-            // ── Upsert score (idempotent) ──────────────────────────────────────────
+            // ── FR-05: Boomerang score boost (+5 pts) ───────────────────────────
+            // A boomerang lead is valuable signal — boost the score slightly to
+            // surface it higher in the feed.
+            const boomerangBonus = lead.boomerang ? 5 : 0;
+            const finalScore = Math.min(100, result.ai_score + boomerangBonus);
+
+            // ── Upsert score — update on re-score, insert on first score ───────────
             await db.insert(leadScores).values({
                 lead_id,
                 user_id: profile.clerk_user_id,
-                ai_score: String(result.ai_score),
+                ai_score: String(finalScore),
                 ai_summary: result.ai_summary,
                 score_breakdown: result.score_breakdown as unknown as Record<string, number>,
                 skill_gaps: result.skill_gaps,
@@ -143,7 +149,18 @@ export const normalizedLeadsWorker = new Worker<NormalizationJob>(
                 golden_hour_notified_at: null,
                 is_autopilot: profile.autopilot_enabled,
                 actioned_from_briefing: false,
-            }).onConflictDoNothing();
+            }).onConflictDoUpdate({
+                target: [leadScores.lead_id, leadScores.user_id],
+                set: {
+                    ai_score: String(finalScore),
+                    ai_summary: result.ai_summary,
+                    score_breakdown: result.score_breakdown as unknown as Record<string, number>,
+                    skill_gaps: result.skill_gaps,
+                    alliance_eligible: result.alliance_eligible,
+                    is_autopilot: profile.autopilot_enabled,
+                    updated_at: new Date(),
+                },
+            });
 
             // Publish scored event for briefing / notification workers
             await scoredQueue.add('scored', {

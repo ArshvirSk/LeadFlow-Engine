@@ -1,27 +1,27 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { UserButton } from '@clerk/nextjs';
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
+import { UserButton } from "@clerk/nextjs";
 import {
-  LayoutDashboard,
-  Zap,
-  Send,
   BarChart2,
   BookOpen,
   Eye,
-  Settings,
   Puzzle,
-} from 'lucide-react';
+  Search,
+  Send,
+  Settings,
+  Zap,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: '/leads', label: 'Lead Feed', icon: Zap },
-  { href: '/outreach', label: 'Outreach', icon: Send },
-  { href: '/briefings', label: 'Briefings', icon: BookOpen },
-  { href: '/watchlist', label: 'Watchlist', icon: Eye },
-  { href: '/analytics', label: 'Analytics', icon: BarChart2 },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: "/leads", label: "Lead Feed", icon: Zap },
+  { href: "/outreach", label: "Outreach", icon: Send },
+  { href: "/briefings", label: "Briefings", icon: BookOpen },
+  { href: "/watchlist", label: "Watchlist", icon: Eye },
+  { href: "/analytics", label: "Analytics", icon: BarChart2 },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -40,16 +40,16 @@ export function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 space-y-1 p-3">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + '/');
+          const active = pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 active
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
@@ -59,6 +59,29 @@ export function Sidebar() {
         })}
       </nav>
 
+      {/* NL Search hint */}
+      <div className="px-3 pb-1">
+        <button
+          onClick={() =>
+            window.dispatchEvent(
+              new KeyboardEvent("keydown", {
+                key: "k",
+                metaKey: true,
+                ctrlKey: true,
+                bubbles: true,
+              }),
+            )
+          }
+          className="flex w-full items-center gap-2 rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <Search className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1 text-left">Search leads…</span>
+          <kbd className="hidden items-center gap-0.5 rounded border bg-background px-1.5 py-0.5 font-mono text-[10px] sm:inline-flex">
+            ⌘K
+          </kbd>
+        </button>
+      </div>
+
       {/* Extension CTA */}
       <div className="m-3 rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground">
         <div className="flex items-center gap-2 font-medium text-foreground mb-1">
@@ -66,7 +89,10 @@ export function Sidebar() {
           Browser Extension
         </div>
         <p>Capture leads from any job board directly.</p>
-        <Link href="/settings#extension" className="mt-1.5 block text-primary hover:underline">
+        <Link
+          href="/settings#extension"
+          className="mt-1.5 block text-primary hover:underline"
+        >
           Install extension →
         </Link>
       </div>
@@ -74,7 +100,9 @@ export function Sidebar() {
       {/* User */}
       <div className="flex items-center gap-3 border-t p-4">
         <UserButton afterSignOutUrl="/sign-in" />
-        <span className="text-sm text-muted-foreground truncate">My Account</span>
+        <span className="text-sm text-muted-foreground truncate">
+          My Account
+        </span>
       </div>
     </aside>
   );

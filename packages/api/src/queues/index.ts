@@ -1,34 +1,34 @@
-import { Redis } from 'ioredis';
-import { Queue } from 'bullmq';
-import { QUEUE_NAMES } from '@leadflow/types';
 import type {
-  RawLeadJob,
-  NormalizationJob,
-  ScoringJob,
-  OutreachDraftJob,
-  ScheduledSendJob,
-  DebriefGenerationJob,
-  BriefingGenerationJob,
-  PortfolioEmbeddingJob,
-  TriggerEventJob,
+    BriefingGenerationJob,
+    DebriefGenerationJob,
+    NormalizationJob,
+    OutreachDraftJob,
+    PortfolioEmbeddingJob,
+    RawLeadJob,
+    ScheduledSendJob,
+    ScoringJob,
+    TriggerEventJob,
 } from '@leadflow/types';
+import { QUEUE_NAMES } from '@leadflow/types';
+import { Queue } from 'bullmq';
+import { Redis } from 'ioredis';
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
 const isTLS = REDIS_URL.startsWith('rediss://');
 
 export const connection = new Redis(REDIS_URL, {
-  maxRetriesPerRequest: null,
-  enableReadyCheck: false,
-  lazyConnect: false,
-  ...(isTLS ? { tls: {} } : {}),
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+    lazyConnect: false,
+    ...(isTLS ? { tls: {} } : {}),
 });
 
 connection.on('error', (err: Error) => {
-  console.error('[redis] connection error', err.message);
+    console.error('[redis] connection error', err.message);
 });
 
 const makeQueue = <T>(name: string) =>
-  new Queue<T>(name, { connection, defaultJobOptions: { removeOnComplete: 100, removeOnFail: 500 } });
+    new Queue<T>(name, { connection, defaultJobOptions: { removeOnComplete: 100, removeOnFail: 500 } });
 
 export const rawLeadsQueue = makeQueue<RawLeadJob>(QUEUE_NAMES.RAW_LEADS);
 export const normalizedLeadsQueue = makeQueue<NormalizationJob>(QUEUE_NAMES.NORMALIZED_LEADS);

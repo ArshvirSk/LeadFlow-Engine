@@ -69,9 +69,20 @@ export const leadsApi = {
         ),
     ingest: (url: string, token: string) =>
         apiFetch<{ jobId: string }>(`/leads/ingest`, { method: 'POST', body: JSON.stringify({ url }), token }),
+    nlSearch: (query: string, token: string) =>
+        apiFetch<{
+            filters_applied: Record<string, unknown>;
+            leads: any[];
+            total_count: number;
+            natural_language_summary: string;
+            error?: string;
+            examples?: string[];
+        }>('/leads/search', { method: 'POST', body: JSON.stringify({ query }), token }),
+    getOptimalSendWindow: (leadId: string, token: string) =>
+        apiFetch<any>(`/leads/${leadId}/optimal-send-window`, { token }),
 };
 
-// ── Profile ───────────────────────────────────────────────────────────────────
+// ── Profile ─────────────────────────────────────────────────────────────────────────────────
 export const profileApi = {
     get: (token: string) => apiFetch<any>('/profile', { token }),
     update: (data: any, token: string) =>
@@ -83,14 +94,16 @@ export const profileApi = {
         apiFetch<any>(`/profile/portfolio/${id}`, { method: 'PUT', body: JSON.stringify(data), token }),
     deletePortfolioPiece: (id: string, token: string) =>
         apiFetch<void>(`/profile/portfolio/${id}`, { method: 'DELETE', token }),
+    uploadPortfolioPdf: (pdf_base64: string, token: string) =>
+        apiFetch<{ text: string }>('/profile/portfolio/upload', { method: 'POST', body: JSON.stringify({ pdf_base64 }), token }),
 };
 
 // ── Outreach ──────────────────────────────────────────────────────────────────
 export const outreachApi = {
-    requestDraft: (lead_id: string, channels: string[], token: string) =>
+    requestDraft: (lead_id: string, channels: string[], token: string, portfolio_piece_id?: string) =>
         apiFetch<{ jobId: string }>('/outreach/drafts', {
             method: 'POST',
-            body: JSON.stringify({ lead_id, channels }),
+            body: JSON.stringify({ lead_id, channels, ...(portfolio_piece_id ? { portfolio_piece_id } : {}) }),
             token,
         }),
     getQueue: (token: string) => apiFetch<any[]>('/outreach/queue', { token }),
@@ -105,13 +118,16 @@ export const outreachApi = {
 export const analyticsApi = {
     summary: (token: string) => apiFetch<any>('/analytics/summary', { token }),
     goldenHours: (token: string) => apiFetch<any[]>('/analytics/golden-hours', { token }),
+    patternReport: (token: string) => apiFetch<any>('/analytics/pattern-report/latest', { token }),
 };
 
 // ── Briefings ─────────────────────────────────────────────────────────────────
 export const briefingsApi = {
     list: (token: string) => apiFetch<any[]>('/briefings', { token }),
     generate: (token: string) =>
-        apiFetch<{ jobId: string }>('/briefings/generate', { method: 'POST', token }),
+        apiFetch<{ jobId: string }>('/briefings/generate', { method: 'POST', body: '{}', token }),
+    markOpened: (id: string, token: string) =>
+        apiFetch<{ ok: boolean }>(`/briefings/${id}/opened`, { method: 'POST', token }),
 };
 
 // ── Meta / reference data (public — no auth token required) ─────────────────

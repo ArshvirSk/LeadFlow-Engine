@@ -40,6 +40,7 @@ export interface OutreachDraftJob {
     lead_id: string;
     user_id: string;
     approval_queue_item_id?: string;
+    portfolio_piece_id?: string; // FR-03: override the auto-matched portfolio piece
 }
 
 export interface ScheduledSendJob {

@@ -84,7 +84,7 @@ _As a developer, I can swap between Claude API and OpenAI without touching any b
 - **Owner:** AI / Backend
 - **Acceptance Criteria:**
   1. `OpenAIProvider` implements `LLMProvider` using `openai` SDK
-  2. `embed()` uses `text-embedding-3-small` model
+  2. `embed()` uses `gemini-embedding-001` model
   3. `complete()` uses `gpt-4o` as Claude fallback
   4. Embedding batching: max 100 texts per API call
 

@@ -123,7 +123,7 @@
 
 - Create `ProfileEmbeddingService` in `packages/workers/src/profile/ProfileEmbedding.ts`
 - Concatenate text: `${profile.headline} ${profile.primary_skills.join(' ')} ${profile.secondary_skills?.join(' ')}`
-- Call OpenAI `text-embedding-3-small`
+- Call OpenAI `gemini-embedding-001`
 - Store in `user_profiles.profile_embedding`
 - Worker listens on `profile.embed:{userId}` queue job
 - Write test: update skills → verify re-embedding triggered and stored

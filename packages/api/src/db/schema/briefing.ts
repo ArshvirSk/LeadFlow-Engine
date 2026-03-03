@@ -1,13 +1,13 @@
 import {
-  pgTable,
-  uuid,
-  text,
   boolean,
-  integer,
-  numeric,
-  timestamp,
-  jsonb,
   index,
+  integer,
+  jsonb,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
 } from 'drizzle-orm/pg-core';
 
 // ─── briefing_log ─────────────────────────────────────────────────────────────
@@ -25,6 +25,7 @@ export const briefingLog = pgTable(
     actions_taken: integer('actions_taken').notNull().default(0),
     channel: text('channel').notNull().default('email'),
     lead_count: integer('lead_count').notNull().default(0),
+    content: jsonb('content'),
   },
   (table) => ({
     userIdIdx: index('briefing_log_user_id_idx').on(table.user_id),

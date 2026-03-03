@@ -6,7 +6,7 @@ import { LeadDetailPanel } from "@/components/leads/LeadDetailPanel";
 import { Button } from "@/components/ui/button";
 import type { LeadFeedParams } from "@/lib/api";
 import { useLeadFeed } from "@/lib/queries";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Zap } from "lucide-react";
 import { useState } from "react";
 import { useInView } from "react-intersection-observer";
 
@@ -31,6 +31,8 @@ export default function LeadsPage() {
   }
 
   const leads = data?.pages.flatMap((p) => p.data) ?? [];
+  const proactiveLeads = leads.filter((l) => l.source === "proactive_trigger");
+  const regularLeads = leads.filter((l) => l.source !== "proactive_trigger");
 
   return (
     <div className="flex h-full flex-col">
@@ -76,16 +78,44 @@ export default function LeadsPage() {
         {!isLoading && leads.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <p className="text-lg font-medium text-muted-foreground">
-              No leads yet
+              No matching leads
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Install the browser extension or paste a lead URL to get started.
+              Leads are filtered to your profile — make sure your skills are set
+              in{" "}
+              <a href="/settings" className="underline hover:text-foreground">
+                Settings
+              </a>
+              , or lower the Min Match filter above.
             </p>
           </div>
         )}
 
+        {/* FR-06: Proactive triggers section — pinned at top */}
+        {proactiveLeads.length > 0 && (
+          <div className="mb-5">
+            <div className="mb-2 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-violet-500" />
+              <h2 className="text-sm font-semibold">Proactive Triggers</h2>
+              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+                {proactiveLeads.length}
+              </span>
+            </div>
+            <div className="space-y-3">
+              {proactiveLeads.map((lead) => (
+                <LeadCard
+                  key={lead.id}
+                  lead={lead}
+                  onOpen={() => setActiveLead(lead.id)}
+                />
+              ))}
+            </div>
+            <div className="my-4 border-t" />
+          </div>
+        )}
+
         <div className="space-y-3">
-          {leads.map((lead) => (
+          {regularLeads.map((lead) => (
             <LeadCard
               key={lead.id}
               lead={lead}
@@ -93,8 +123,6 @@ export default function LeadsPage() {
             />
           ))}
         </div>
-
-        {/* Infinite scroll trigger */}
         <div ref={loaderRef} className="py-4 flex justify-center">
           {isFetchingNextPage && (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

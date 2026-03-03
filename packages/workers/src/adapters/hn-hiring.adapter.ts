@@ -37,7 +37,9 @@ export class HNHiringAdapter implements SourceAdapter {
             `${ALGOLIA_BASE}/search?tags=comment,story_${storyId}` +
             `&hitsPerPage=200&attributesToRetrieve=objectID,author,comment_text,created_at`;
 
-        const resp = await fetch(url);
+        const resp = await fetch(url, {
+            headers: { 'User-Agent': 'LeadFlowBot/1.0 (lead aggregator)' },
+        });
         if (!resp.ok) return [];
 
         const data = (await resp.json()) as { hits?: AlgoliaHit[] };
@@ -90,29 +92,41 @@ export class HNHiringAdapter implements SourceAdapter {
 
     // ─── Private ───────────────────────────────────────────────────────────────
 
-    /** Find the latest "Freelancer? Seeking freelancer?" thread by whoishiring. */
+    /**
+     * Find the latest "Freelancer? Seeking freelancer?" thread by whoishiring.
+     * Tries current month first, then falls back to the previous month in case
+     * the thread hasn't been posted yet (e.g. early in the month).
+     */
     private async getFreelanceStoryId(): Promise<string | null> {
-        const now = new Date();
-        const month = now.toLocaleString('en-US', { month: 'long' });
-        const year = now.getFullYear();
-        const query = encodeURIComponent(`Freelancer? Seeking freelancer? (${month} ${year})`);
+        for (let monthOffset = 0; monthOffset <= 1; monthOffset++) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - monthOffset);
+            const month = d.toLocaleString('en-US', { month: 'long' });
+            const year = d.getFullYear();
+            const query = encodeURIComponent(`Freelancer? Seeking freelancer? (${month} ${year})`);
 
-        const url =
-            `${ALGOLIA_BASE}/search?query=${query}` +
-            `&tags=story,author_whoishiring` +
-            `&hitsPerPage=5` +
-            `&attributesToRetrieve=objectID,title,author`;
+            const url =
+                `${ALGOLIA_BASE}/search?query=${query}` +
+                `&tags=story,author_whoishiring` +
+                `&hitsPerPage=5` +
+                `&attributesToRetrieve=objectID,title,author`;
 
-        const resp = await fetch(url);
-        if (!resp.ok) return null;
+            const resp = await fetch(url, {
+                headers: { 'User-Agent': 'LeadFlowBot/1.0 (lead aggregator)' },
+            });
+            if (!resp.ok) continue;
 
-        const data = (await resp.json()) as {
-            hits?: Array<{ objectID: string; title?: string; author?: string }>;
-        };
+            const data = (await resp.json()) as {
+                hits?: Array<{ objectID: string; title?: string; author?: string }>;
+            };
 
-        const story = (data.hits ?? []).find(
-            h => /freelancer.*seeking freelancer/i.test(h.title ?? '') && h.author === 'whoishiring'
-        );
-        return story?.objectID ?? null;
+            const story = (data.hits ?? []).find(
+                h => /freelancer.*seeking freelancer/i.test(h.title ?? '') && h.author === 'whoishiring'
+            );
+            if (story) return story.objectID;
+
+            console.warn(`[hn_hiring] no thread found for ${month} ${year}, trying previous month`);
+        }
+        return null;
     }
 }

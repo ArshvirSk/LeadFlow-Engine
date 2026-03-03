@@ -52,6 +52,7 @@ function isFreelanceHiring(title: string, body: string): boolean {
 const SUBREDDITS = [
     'forhire',
     'freelance_forhire',
+    'hiring',      // broader hiring sub — still yields [Hiring] freelance/contract posts
 ];
 
 interface RedditPost {
@@ -69,10 +70,22 @@ export class RedditForHireAdapter implements SourceAdapter {
     id = 'reddit_forhire';
     schedule = '*/30 * * * *';
 
+    /**
+     * Reddit unauthenticated JSON API rate limit:
+     * ~1 request per 2 seconds per IP is safe. We add a 2-second delay between
+     * subreddit fetches. Reddit also returns 429 with a Retry-After header when
+     * the limit is exceeded — we honour that.
+     *
+     * User-Agent: Reddit requires a descriptive UA. Set REDDIT_USER_AGENT in .env:
+     *   e.g. "LeadFlowBot/1.0 by /u/your_reddit_username"
+     */
     async poll(): Promise<RawLeadItem[]> {
         const results: RawLeadItem[] = [];
 
-        for (const sub of SUBREDDITS) {
+        for (let i = 0; i < SUBREDDITS.length; i++) {
+            const sub = SUBREDDITS[i]!;
+            // 2-second gap between requests — stays well within Reddit's ~1 req/2s guideline
+            if (i > 0) await new Promise(r => setTimeout(r, 2000));
             try {
                 const posts = await this.fetchSubreddit(sub);
                 results.push(...posts);
@@ -93,8 +106,15 @@ export class RedditForHireAdapter implements SourceAdapter {
     private async fetchSubreddit(sub: string): Promise<RawLeadItem[]> {
         const url = `https://www.reddit.com/r/${sub}/new.json?limit=100&sort=new&t=day`;
         const resp = await fetch(url, {
-            headers: { 'User-Agent': process.env.REDDIT_USER_AGENT ?? 'LeadFlowBot/1.0' },
+            headers: { 'User-Agent': process.env.REDDIT_USER_AGENT ?? 'LeadFlowBot/1.0 (by /u/leadflow_bot)' },
         });
+
+        // Honour Retry-After on 429 — Reddit is explicit about this
+        if (resp.status === 429) {
+            const retryAfter = Number(resp.headers.get('retry-after') ?? 60);
+            console.warn(`[reddit] r/${sub} rate limited. Retry-After=${retryAfter}s. Skipping this sub.`);
+            return [];
+        }
         if (!resp.ok) return [];
 
         const data = (await resp.json()) as {

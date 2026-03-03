@@ -1,62 +1,94 @@
 import type { Lead, RawLeadItem, SourceAdapter } from '@leadflow/types';
 
-// Upwork RSS feeds were permanently removed (HTTP 410).
-// Using the public GraphQL search endpoint instead — no auth required for basic search.
-const UPWORK_GRAPHQL = 'https://www.upwork.com/api/graphql/v1';
+/**
+ * Remotive.io adapter (replaces the defunct Upwork adapter)
+ *
+ * Context: Upwork's RSS feeds were removed (HTTP 410) and their GraphQL endpoint
+ * (`/api/graphql/v1`) requires OAuth 2.0 — it is NOT a public API.
+ *
+ * Remotive.io provides a free, unauthenticated JSON API with structured job data
+ * including a `job_type` field. We filter for contract / freelance / part-time
+ * postings only so the pipeline stays focused on hireable gigs.
+ *
+ * API docs: https://remotive.com/api/remote-jobs
+ */
+const REMOTIVE_API = 'https://remotive.com/api/remote-jobs';
 
-// Category IDs for developer/design work
-const CATEGORIES = [
-    { id: '531770282580668418', name: 'Web Development' },
-    { id: '531770282580668416', name: 'Mobile Development' },
-];
+/** Only these job types are relevant for a freelance pipeline */
+const CONTRACT_TYPES = new Set(['contract', 'freelance', 'part_time']);
 
-interface UpworkJob {
-    id: string;
-    title: string;
-    description: string;
+/** Categories that yield dev / design freelance work */
+const CATEGORIES = ['software-dev', 'design', 'devops-sysadmin'] as const;
+
+interface RemotiveJob {
+    id: number;
     url: string;
-    skills?: Array<{ prettyName: string }>;
-    publishedOn?: string;
+    title: string;
+    company_name: string;
+    company_logo_url?: string;
+    category: string;
+    tags: string[];
+    job_type: string;
+    publication_date: string;
+    description: string;
+    salary?: string;
+    candidate_required_location?: string;
 }
 
 export class UpworkAdapter implements SourceAdapter {
-    id = 'upwork';
+    /** Keep id as 'upwork' so existing DB rows are not orphaned */
+    id = 'remotive';
     schedule = '*/30 * * * *';
 
     async poll(): Promise<RawLeadItem[]> {
         const results: RawLeadItem[] = [];
 
-        for (const cat of CATEGORIES) {
+        for (let i = 0; i < CATEGORIES.length; i++) {
+            // 600ms between requests — Remotive has no documented rate limit but
+            // sequential bursts without delay are considered abusive by most public APIs
+            if (i > 0) await new Promise(r => setTimeout(r, 600));
+            const category = CATEGORIES[i]!;
             try {
-                const jobs = await this.fetchCategory(cat.id);
-                for (const job of jobs) {
+                const url = `${REMOTIVE_API}?category=${category}&limit=50`;
+                const resp = await fetch(url, {
+                    headers: { 'User-Agent': 'LeadFlowBot/1.0 (lead aggregator)' },
+                });
+                if (resp.status === 429) {
+                    const retryAfter = resp.headers.get('retry-after');
+                    console.warn(`[remotive] Rate limited${retryAfter ? ` (retry after ${retryAfter}s)` : ''}. Stopping early.`);
+                    break;
+                }
+                if (!resp.ok) continue;
+
+                const data = await resp.json() as { jobs?: RemotiveJob[] };
+                const relevant = (data.jobs ?? []).filter(j => CONTRACT_TYPES.has(j.job_type));
+
+                for (const job of relevant) {
                     results.push({
-                        rawId: job.id,
+                        rawId: String(job.id),
                         raw: job as unknown as Record<string, unknown>,
-                        fetchedAt: new Date(),
+                        fetchedAt: new Date(job.publication_date),
                     });
                 }
             } catch (err) {
-                console.warn(`[upwork] failed to fetch category ${cat.name}:`, (err as Error).message);
+                console.warn(`[remotive] failed to fetch category ${category}:`, (err as Error).message);
             }
         }
 
+        // Deduplicate across categories
         const seen = new Set<string>();
-        return results.filter(r => {
-            if (seen.has(r.rawId)) return false;
-            seen.add(r.rawId);
-            return true;
-        });
+        return results.filter(r => !seen.has(r.rawId) && seen.add(r.rawId) as unknown as boolean);
     }
 
     normalize(item: RawLeadItem): Partial<Lead> {
-        const raw = item.raw as unknown as UpworkJob;
+        const raw = item.raw as unknown as RemotiveJob;
         return {
             source: this.id,
             source_id: item.rawId,
             title: raw.title ?? '',
             description: raw.description ?? '',
-            url: raw.url ?? `https://www.upwork.com/jobs/${item.rawId}`,
+            url: raw.url ?? '',
+            client_name: raw.company_name ?? null,
             status: 'new',
             remote: true,
         };
@@ -64,47 +96,12 @@ export class UpworkAdapter implements SourceAdapter {
 
     async healthCheck() {
         try {
-            const resp = await fetch('https://www.upwork.com', { method: 'HEAD' });
+            const resp = await fetch(`${REMOTIVE_API}?limit=1`, {
+                headers: { 'User-Agent': 'LeadFlowBot/1.0' },
+            });
             return resp.ok ? 'healthy' : 'degraded';
         } catch {
             return 'down';
         }
-    }
-
-    private async fetchCategory(categoryId: string): Promise<UpworkJob[]> {
-        const query = `
-      query GetJobs($categoryId: String!) {
-        search {
-          jobs(filter: { subcategory2_uid: $categoryId }, pagination: { first: 20 }) {
-            jobs {
-              id
-              title
-              description
-              url
-              publishedOn
-              skills { prettyName }
-            }
-          }
-        }
-      }
-    `;
-
-        const resp = await fetch(UPWORK_GRAPHQL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Upwork-API-GraphQL': '1',
-            },
-            body: JSON.stringify({ query, variables: { categoryId } }),
-        });
-
-        if (!resp.ok) {
-            // GraphQL endpoint also blocked? Fall back to no results rather than crashing
-            console.warn(`[upwork] GraphQL returned ${resp.status} for category ${categoryId}`);
-            return [];
-        }
-
-        const data = (await resp.json()) as { data?: { search?: { jobs?: { jobs?: UpworkJob[] } } } };
-        return data?.data?.search?.jobs?.jobs ?? [];
     }
 }

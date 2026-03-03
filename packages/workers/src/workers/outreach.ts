@@ -4,12 +4,18 @@ import { Worker } from 'bullmq';
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '../db.js';
 import { OutreachContextBuilder } from '../outreach/OutreachContextBuilder.js';
+import { ClipboardPitchGenerator } from '../outreach/generators/ClipboardPitch.generator.js';
 import { ColdEmailGenerator } from '../outreach/generators/ColdEmail.generator.js';
+import { LinkedInGenerator } from '../outreach/generators/LinkedIn.generator.js';
+import { TwitterDMGenerator } from '../outreach/generators/TwitterDM.generator.js';
 import { connection } from '../redis.js';
-import { approvalQueue, leads, leadScores, userProfiles } from '../schema.js';
+import { approvalQueue, leads, leadScores, portfolioPieces, userProfiles } from '../schema.js';
 
 const contextBuilder = new OutreachContextBuilder();
 const emailGenerator = new ColdEmailGenerator();
+const linkedInGenerator = new LinkedInGenerator();
+const twitterGenerator = new TwitterDMGenerator();
+const clipboardGenerator = new ClipboardPitchGenerator();
 
 export const outreachDraftsWorker = new Worker<OutreachDraftJob>(
     QUEUE_NAMES.OUTREACH_DRAFTS,
@@ -145,22 +151,76 @@ export const outreachDraftsWorker = new Worker<OutreachDraftJob>(
 
         const ctx = contextBuilder.build(leadForContext, profileForContext, [], scoreForContext);
 
-        // ── Generate cold email ───────────────────────────────────────────────────
-        const emailDraft = await emailGenerator.generate(ctx);
+        // ── FR-03: Portfolio override — if a specific piece was requested ──────────────────
+        if (job.data.portfolio_piece_id) {
+            const [overridePiece] = await db
+                .select()
+                .from(portfolioPieces)
+                .where(eq(portfolioPieces.id, job.data.portfolio_piece_id))
+                .limit(1);
+            if (overridePiece) {
+                ctx.portfolio = [{
+                    title: overridePiece.title,
+                    url: overridePiece.url ?? null,
+                    similarity: 1.0,
+                    key_outcome: overridePiece.outcomes ?? null,
+                }];
+                job.log(`[outreach] portfolio override: using piece '${overridePiece.title}'`);
+            }
+        } ───────────────────────────────────────
+        const [emailDraft, linkedInDraft, twitterDraft, clipboardDraft] = await Promise.all([
+            emailGenerator.generate(ctx),
+            linkedInGenerator.generate(ctx).catch((err: Error) => {
+                job.log(`[outreach:linkedin] failed: ${err.message}`);
+                return null;
+            }),
+            twitterGenerator.generate(ctx).catch((err: Error) => {
+                job.log(`[outreach:twitter] failed: ${err.message}`);
+                return null;
+            }),
+            clipboardGenerator.generate(ctx).catch((err: Error) => {
+                job.log(`[outreach:clipboard] failed: ${err.message}`);
+                return null;
+            }),
+        ]);
 
         job.log(
-            `Email draft ready — ${emailDraft.word_count} words, ` +
-            `passed_validation: ${emailDraft.passed_validation}`
+            `Drafts ready — email: ${emailDraft.word_count}w (${emailDraft.passed_validation ? 'OK' : 'WARN'}), ` +
+            `linkedin: ${linkedInDraft ? 'OK' : 'FAILED'}, ` +
+            `twitter: ${twitterDraft ? 'OK' : 'FAILED'}, ` +
+            `clipboard: ${clipboardDraft ? 'OK' : 'FAILED'}`
         );
 
-        // Persist draft into approval_queue (the row was created by the API on request)
-        const draftPayload = {
+        // Persist draft into approval_queue
+        const draftPayload: Record<string, unknown> = {
             email: {
                 subject: emailDraft.subject,
                 body: emailDraft.body,
                 word_count: emailDraft.word_count,
                 passed_validation: emailDraft.passed_validation,
             },
+            ...(linkedInDraft && {
+                linkedin: {
+                    connection_note: linkedInDraft.connection_note,
+                    inmail_subject: linkedInDraft.inmail_subject,
+                    inmail_body: linkedInDraft.inmail_body,
+                    passed_validation: linkedInDraft.passed_validation,
+                },
+            }),
+            ...(twitterDraft && {
+                twitter: {
+                    dm: twitterDraft.dm,
+                    passed_validation: twitterDraft.passed_validation,
+                },
+            }),
+            ...(clipboardDraft && {
+                clipboard: {
+                    pitch: clipboardDraft.pitch,
+                    line_count: clipboardDraft.line_count,
+                    passed_validation: clipboardDraft.passed_validation,
+                },
+            }),
+            generated_at: new Date().toISOString(),
         };
 
         // Update the specific approval_queue row by ID (passed from the API on enqueue)

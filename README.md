@@ -4,16 +4,16 @@ AI-powered freelance lead intelligence platform. Ingests leads from 5 sources, s
 
 ## Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js 15, Tailwind, shadcn/ui, Clerk |
-| API | Fastify 4, Drizzle ORM, PostgreSQL + pgvector |
-| Workers | BullMQ, Node.js (normalization, scoring, outreach, embeddings, autopilot) |
-| Database | Neon (PostgreSQL 16 + pgvector) |
-| Queue | Upstash (Redis) |
-| Auth | Clerk |
-| AI | Anthropic Claude (scoring + drafts), OpenAI (embeddings) |
-| Deploy | Koyeb (API + Workers), Vercel (Frontend) |
+| Layer    | Technology                                                                |
+| -------- | ------------------------------------------------------------------------- |
+| Frontend | Next.js 15, Tailwind, shadcn/ui, Clerk                                    |
+| API      | Fastify 4, Drizzle ORM, PostgreSQL + pgvector                             |
+| Workers  | BullMQ, Node.js (normalization, scoring, outreach, embeddings, autopilot) |
+| Database | Neon (PostgreSQL 16 + pgvector)                                           |
+| Queue    | Upstash (Redis)                                                           |
+| Auth     | Clerk                                                                     |
+| AI       | Anthropic Claude (scoring + drafts), OpenAI (embeddings)                  |
+| Deploy   | Koyeb (API + Workers), Vercel (Frontend)                                  |
 
 ## Monorepo Structure
 
@@ -55,9 +55,10 @@ pnpm dev
 ```
 
 Services:
-- Frontend: http://localhost:3001
-- API: http://localhost:3000
-- Bull Board: http://localhost:3000/admin/queues
+
+- Frontend: <http://localhost:3001>
+- API: <http://localhost:3000>
+- Bull Board: <http://localhost:3000/admin/queues>
 
 ## Environment Variables
 

@@ -1,9 +1,37 @@
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { db } from '../db/index.js';
-import { portfolioPieces, userProfiles } from '../db/schema/index.js';
-import { portfolioEmbeddingsQueue } from '../queues/index.js';
+import { leadScores, portfolioPieces, userProfiles } from '../db/schema/index.js';
+import { normalizedLeadsQueue, portfolioEmbeddingsQueue } from '../queues/index.js';
+
+// ─── FR-03: inline PDF text extraction (no external deps) ───────────────────────────────────
+function extractPdfText(buf: Buffer): string {
+    // Read as latin1 so binary stays byte-for-byte
+    const content = buf.toString('latin1');
+    const parts: string[] = [];
+    // Match PDF string literals in Tj / TJ operators
+    const re = /\(([^)\\]*(?:\\.[^)\\]*)*)\)\s*(?:Tj|'|")|(?:\[([^\]]*)\])\s*TJ/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(content)) !== null) {
+        if (m[1]) {
+            parts.push(
+                m[1]
+                    .replace(/\\n/g, ' ')
+                    .replace(/\\r/g, ' ')
+                    .replace(/\\\(/g, '(')
+                    .replace(/\\\)/g, ')')
+                    .replace(/\\\\/g, '\\')
+            );
+        } else if (m[2]) {
+            const inner = m[2];
+            const strRe = /\(([^)\\]*(?:\\.[^)\\]*)*)\)/g;
+            let sm: RegExpExecArray | null;
+            while ((sm = strRe.exec(inner)) !== null) parts.push(sm[1]);
+        }
+    }
+    return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
 
 // ─── PROF-T07: Profile completeness score (weighted, 0–100) ──────────────────
 function computeCompleteness(profile: {
@@ -118,6 +146,26 @@ export async function profileRoutes(app: FastifyInstance) {
             .set({ profile_completeness: completeness })
             .where(eq(userProfiles.clerk_user_id, userId));
 
+        // Re-score existing leads if any score-affecting field was updated
+        const SCORE_AFFECTING = ['core_skills', 'hourly_rate', 'min_budget', 'max_budget'] as const;
+        const needsRescore = SCORE_AFFECTING.some(f => data[f as keyof typeof data] !== undefined);
+        if (needsRescore) {
+            const scored = await db
+                .select({ lead_id: leadScores.lead_id })
+                .from(leadScores)
+                .where(eq(leadScores.user_id, userId))
+                .orderBy(desc(leadScores.updated_at))
+                .limit(200);
+            if (scored.length > 0) {
+                await normalizedLeadsQueue.addBulk(
+                    scored.map(({ lead_id }) => ({
+                        name: 'rescore',
+                        data: { lead_id },
+                    }))
+                );
+            }
+        }
+
         return reply.send({ ...updated, profile_completeness: completeness });
     });
 
@@ -188,5 +236,25 @@ export async function profileRoutes(app: FastifyInstance) {
             return reply.status(404).send({ error: 'Not found' });
         await db.delete(portfolioPieces).where(eq(portfolioPieces.id, id));
         return reply.status(204).send();
+    });
+
+    // POST /profile/portfolio/upload — FR-03: extract text from a base64-encoded PDF
+    app.post('/profile/portfolio/upload', async (req, reply) => {
+        const { pdf_base64 } = req.body as { pdf_base64?: string };
+        if (!pdf_base64) return reply.status(400).send({ error: 'pdf_base64 is required' });
+
+        let buf: Buffer;
+        try {
+            buf = Buffer.from(pdf_base64, 'base64');
+        } catch {
+            return reply.status(400).send({ error: 'Invalid base64' });
+        }
+
+        if (buf.length > 5 * 1024 * 1024) {
+            return reply.status(400).send({ error: 'File too large (max 5 MB)' });
+        }
+
+        const text = extractPdfText(buf).slice(0, 1000);
+        return reply.send({ text });
     });
 }
